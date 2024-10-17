@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "/home/hyuneun/disk_b/ESL/SfM/sfm/SuperGluePretrainedNetwork"
+    ]
+}

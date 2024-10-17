@@ -220,6 +220,7 @@ def reconstruct_4view():
     p3ds_combined = np.hstack((p3ds_12, p3ds_23_transformed, p3ds_34_transformed, p3ds_41_transformed))
 
     # 3D 시각화
+    print("3D 포인트 계산 완료, 시각화 시작")
     visualize_3d(p3ds_combined)
 
 # 4-view 재구성 실행
