@@ -6,36 +6,39 @@ from matplotlib import pyplot as plt
 img_path = 'C:/Users/hyune/Desktop/AI/SfM/sfm/data/nutellar2/'
 
 img1_name = 'nutella4.jpg'
-img2_name = 'nutella41.jpg'
-img3_name = 'nutella17.jpg'
-img4_name = 'nutella26.jpg'
+img2_name = 'nutella5.jpg'
+img3_name = 'nutella6.jpg'
+img4_name = 'nutella7.jpg'
 
-# # 이미지 로드 함수 수정
-# def load_image(img_path, img1_name, img2_name, contrast=False):
-#     img1 = cv2.imread(img_path + img1_name)
-#     img2 = cv2.imread(img_path + img2_name)
-    
-#     if img1 is None:
-#         raise FileNotFoundError(f"Error: Unable to load image {img1_name} from {img_path}")
-#     if img2 is None:
-#         raise FileNotFoundError(f"Error: Unable to load image {img2_name} from {img_path}")
-    
-#     # 대비 조절 (원할 경우)
-#     if contrast:
-#         img1 = adjust_contrast(img1)
-#         img2 = adjust_contrast(img2)
-    
-#     img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-#     img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
-    
-#     return img1, img2
+# 이미지 대비 조절 함수
+def adjust_contrast(img, alpha=1.2, beta=20):
+    """
+    alpha: Contrast control (1.0-3.0)
+    beta: Brightness control (0-100)
+    """
+    return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
 
-# # 대비를 조정하고 싶으면 load_image 함수에서 contrast=True를 넣어 호출
-# img1, img2 = load_image(img_path, img1_name, img2_name, contrast=True)
+# 이미지 로드 함수
+def load_image(img_path, img1_name, img2_name, contrast=False):
+    img1 = cv2.imread(img_path + img1_name)
+    img2 = cv2.imread(img_path + img2_name)
+    
+    if img1 is None:
+        raise FileNotFoundError(f"Error: Unable to load image {img1_name} from {img_path}")
+    if img2 is None:
+        raise FileNotFoundError(f"Error: Unable to load image {img2_name} from {img_path}")
+    
+    # 대비 조절 (원할 경우)
+    if contrast:
+        img1 = adjust_contrast(img1)
+        img2 = adjust_contrast(img2)
+    
+    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
+    
+    return img1, img2
 
 # SURF 특징점 추출 및 매칭
-import cv2
-
 def SURF(img1, img2):
     surf = cv2.xfeatures2d.SURF_create()
     img1_kp, img1_des = surf.detectAndCompute(img1, None)
@@ -61,7 +64,7 @@ def SIFT(img1, img2):
 
     bf = cv2.BFMatcher()
     matches = bf.knnMatch(img1_des, img2_des, k=2)
-    matches_good = [m1 for m1, m2 in matches if m1.distance < 0.75 * m2.distance]
+    matches_good = [m1 for m1, m2 in matches if m1.distance < 0.65 * m2.distance]
 
     sorted_matches = sorted(matches_good, key=lambda x: x.distance)
     res = cv2.drawMatches(img1, img1_kp, img2, img2_kp, sorted_matches, img2, flags=2)
@@ -151,60 +154,73 @@ def align_coordinate_system(Rt1_first, Rt1_second):
     T = np.linalg.inv(R_first) @ R_second
     return T
 
-# 2-view 재구성
+# # 2-view 재구성
+# def reconstruct_2view(img1_name, img2_name, contrast=False):
+#     # 대비 조절 적용
+#     img1, img2 = load_image(img_path, img1_name, img2_name, contrast=contrast)
+#     matches_good, img1_kp, img2_kp = SIFT(img1, img2)
+#     E, p1_inlier, p2_inlier = Estimation_E(matches_good, img1_kp, img2_kp)
+#     CameraMatrix = EM_Decomposition(E, p1_inlier, p2_inlier)
+#     Rt0, Rt1 = initialize_CM(CameraMatrix)
+#     point3d = make_3dpoint(p1_inlier, p2_inlier, Rt0, Rt1)
+#     return point3d, Rt1
+
+# # 2-view 두 개를 결합하여 4-view 처리
+# def reconstruct_4view():
+#     # 첫 번째 2-view 재구성 (대비 조절 적용)
+#     p3ds_12, Rt1_first = reconstruct_2view(img1_name, img2_name, contrast=True)
+    
+#     # 두 번째 2-view 재구성 (대비 조절 적용)
+#     p3ds_34, Rt1_second = reconstruct_2view(img3_name, img4_name, contrast=True)
+    
+#     # 두 번째 2-view의 좌표계를 첫 번째 2-view의 좌표계에 맞추는 변환 행렬 적용
+#     T = align_coordinate_system(Rt1_first, Rt1_second)
+#     p3ds_34_transformed = T @ p3ds_34
+    
+#     # 두 세트의 3D 포인트를 결합
+#     p3ds_combined = np.hstack((p3ds_12, p3ds_34_transformed))
+
+#     visualize_3d(p3ds_combined)
+
+# 2-view 재구성 함수에서 두 개의 이미지를 재구성하는 부분
 def reconstruct_2view(img1_name, img2_name):
     img1, img2 = load_image(img_path, img1_name, img2_name)
-    matches_good, img1_kp, img2_kp = SIFT(img1, img2)
-    E, p1_inlier, p2_inlier = Estimation_E(matches_good, img1_kp, img2_kp)
-    CameraMatrix = EM_Decomposition(E, p1_inlier, p2_inlier)
-    Rt0, Rt1 = initialize_CM(CameraMatrix)
-    point3d = make_3dpoint(p1_inlier, p2_inlier, Rt0, Rt1)
+    matches_good, img1_kp, img2_kp = SIFT(img1, img2)  # SIFT 기반 매칭
+    E, p1_inlier, p2_inlier = Estimation_E(matches_good, img1_kp, img2_kp)  # 에센셜 매트릭스 추정
+    CameraMatrix = EM_Decomposition(E, p1_inlier, p2_inlier)  # 에센셜 매트릭스 분해
+    Rt0, Rt1 = initialize_CM(CameraMatrix)  # 카메라 매트릭스 초기화
+    point3d = make_3dpoint(p1_inlier, p2_inlier, Rt0, Rt1)  # 3D 포인트 생성
     return point3d, Rt1
 
-# 2-view 두 개를 결합하여 4-view 처리
+# 여러 2-view 결합
 def reconstruct_4view():
-    # 첫 번째 2-view 재구성
+    # 첫 번째 2-view (1-2)
     p3ds_12, Rt1_first = reconstruct_2view(img1_name, img2_name)
     
-    # 두 번째 2-view 재구성
-    p3ds_34, Rt1_second = reconstruct_2view(img3_name, img4_name)
+    # 두 번째 2-view (2-3)
+    p3ds_23, Rt1_second = reconstruct_2view(img2_name, img3_name)
     
-    # 두 번째 2-view의 좌표계를 첫 번째 2-view의 좌표계에 맞추는 변환 행렬 적용
-    T = align_coordinate_system(Rt1_first, Rt1_second)
-    p3ds_34_transformed = T @ p3ds_34
+    # 세 번째 2-view (3-4)
+    p3ds_34, Rt1_third = reconstruct_2view(img3_name, img4_name)
     
-    # 두 세트의 3D 포인트를 결합
-    p3ds_combined = np.hstack((p3ds_12, p3ds_34_transformed))
+    # 네 번째 2-view (4-1)
+    p3ds_41, Rt1_fourth = reconstruct_2view(img4_name, img1_name)
+    
+    # 순차적으로 좌표계 맞추기 (Rt1_first을 기준으로)
+    T1 = align_coordinate_system(Rt1_first, Rt1_second)
+    p3ds_23_transformed = T1 @ p3ds_23
+    
+    T2 = align_coordinate_system(Rt1_first, Rt1_third)
+    p3ds_34_transformed = T2 @ p3ds_34
+    
+    T3 = align_coordinate_system(Rt1_first, Rt1_fourth)
+    p3ds_41_transformed = T3 @ p3ds_41
+    
+    # 모든 포인트들을 합침
+    p3ds_combined = np.hstack((p3ds_12, p3ds_23_transformed, p3ds_34_transformed, p3ds_41_transformed))
 
+    # 3D 시각화
     visualize_3d(p3ds_combined)
-
-# 이미지 대비 조절 함수
-def adjust_contrast(img, alpha=1.5, beta=0):
-    """
-    alpha: Contrast control (1.0-3.0)
-    beta: Brightness control (0-100)
-    """
-    return cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
-
-# 이미지 로드 함수
-def load_image(img_path, img1_name, img2_name, contrast=False):
-    img1 = cv2.imread(img_path + img1_name)
-    img2 = cv2.imread(img_path + img2_name)
-    
-    if img1 is None:
-        raise FileNotFoundError(f"Error: Unable to load image {img1_name} from {img_path}")
-    if img2 is None:
-        raise FileNotFoundError(f"Error: Unable to load image {img2_name} from {img_path}")
-    
-    # 대비 조절 (원할 경우)
-    if contrast:
-        img1 = adjust_contrast(img1)
-        img2 = adjust_contrast(img2)
-    
-    img1 = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
-    img2 = cv2.cvtColor(img2, cv2.COLOR_BGR2RGB)
-    
-    return img1, img2
 
 # 4-view 재구성 실행
 reconstruct_4view()
